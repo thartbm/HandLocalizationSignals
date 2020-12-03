@@ -1,0 +1,26 @@
+---
+title: "Hand Localization Signals"
+output: html_notebook
+---
+
+In this document all analyses can be reviewed with full output. It starts by loading (and installing) the package with code that is used for the project and paper.
+
+```{r}
+if (!require(handlocs)) {
+  if (!require(devtools)) {
+    install.packages(devtools)
+  }
+  # options(download.file.method = "libcurl")
+  devtools::install_github('thartbm/handlocs', ref='main')
+}
+library(handlocs)
+```
+
+Now that the code is available, we can download the data from OSF.
+
+```{r}
+
+```
+
+
+

@@ -16,11 +16,50 @@ if (!require(handlocs)) {
 library(handlocs)
 ```
 
-Now that the code is available, we can download the data from OSF.
+Lists of urls and raw data files are available from the `handlocs` package. We'll store them in the `data/` folder here:
 
 ```{r}
-
+data(files, package='handlocs')
+write.csv(files, 'data/files.csv', row.names = FALSE)
+data(urls, package='handlocs')
+write.csv(urls, 'data/urls.csv', row.names = FALSE)
 ```
 
+We can now also download the raw data from OSF.
+
+```{r}
+handlocs::dataDownload(groups='all', sections=c('aligned','rotated'), overwrite=FALSE)
+```
+
+We now have all data used for the paper. But there is more data for people that want to explore that: the reaches made during the localization trials. Add the section `localization-reaches` to the command to also download that data.
+
+The main thing to do first is to further clean the data. All trials have been manually inspected and have been tagged as selected or not: every csv file has a `selected` column with 1 for selected trials and 0 for not selected trials. All reach trajectories in `training` and `nocursor` files (but not the `activereach` and `passivereach` files) also have a sample indicated to correspond to the point of maximum velocity, which we use as point to get the angular reach deviations at.
+
+```{r}
+getFileReachDeviations <- function(data, column='maxvelocity', value=1, FUN=NULL) {
+  
+  
+  df <- read.csv(data, stringsAsFactors = FALSE)
+  
+  if (!is.null(FUN)) {
+    df <- FUN(df)
+  }
+  
+  df <- df[which(df[[column]] == value),]
+  
+  for (target in unique(df$targetangle_deg)) {
+    
+    idx <- which(df$targetangle_deg == target)
+    
+    df[idx,c('handx_cm','handy_cm')] <- SMCL::rotateCoordinates(df[idx,c('handx_cm','handy_cm')], -target)
+    
+  }
+  
+  df$angulardeviation_deg <- (atan2(df$handy_cm,df$handx_cm) / pi) * 180
+  
+  df
+  
+}
+```
 
 

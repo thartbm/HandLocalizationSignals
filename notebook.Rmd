@@ -1,9 +1,11 @@
 ---
 title: "Hand Localization Signals"
-output: html_notebook
+output:
+  word_document: default
+  html_notebook: default
 ---
 
-In this document all analyses can be reviewed with full output. It starts by loading (and installing) the package with code that is used for the project and paper.
+In this document all analyses can be reviewed with full output. It starts by loading (and installing) the package with code that is used for the project and paper. The code in this package is not specific to this paper
 
 ```{r}
 if (!require(handlocs)) {
@@ -62,4 +64,47 @@ getFileReachDeviations <- function(data, column='maxvelocity', value=1, FUN=NULL
 }
 ```
 
+# Hand Localization
+
+(remove localizations that have been de-selected, are more than 4 cm from the arc, and with Y<0 - no other screening)
+
+## Biases throughout the workspace
+
+Summarize at 3 training targets? Effect of age?
+
+## Efferent and Afferent precision
+
+Effect of age? (2 scatters, with strip-plots/denisities in the margins)
+
+# Reaching
+
+(get reach deviations at maximum velocity in training and at endpoint in no-cursor)
+
+## Reach accuracy with and without cursor
+
+What is the accuracy in each case? Biases to each target. Effects of age?
+
+## Reach precision with and without cursor
+
+What is the precision of reaches? Does this actually change after adaptation? Effects of age?
+
+# Localization and Reaching
+
+## Bias
+
+Do biases in localization (accuracy per target), predict biases in reaching? With or without cursors? Effects of age?
+
+## Precision
+
+Does localization precsion (afferent or efferent?) predict precision in reaching with or without cursor? Effects of age?
+
+# Adaptation
+
+## Localization
+
+Does adaptation depend on localization precision (efferent / afferent)? Effects of age?
+
+## Exploration, exploitation
+
+Does adaptation depend on reach precision (with or without cursor)? Effects of age?
 

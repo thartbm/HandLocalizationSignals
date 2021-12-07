@@ -13,24 +13,15 @@ if (!require(handlocs)) {
     install.packages(devtools)
   }
   # options(download.file.method = "libcurl")
-  devtools::install_github('thartbm/handlocs', ref='main')
+  devtools::install_github('thartbm/handlocs', ref='main', force=TRUE)
 }
 library(handlocs)
-```
-
-Lists of urls and raw data files are available from the `handlocs` package. We'll store them in the `data/` folder here:
-
-```{r}
-data(files, package='handlocs')
-write.csv(files, 'data/files.csv', row.names = FALSE)
-data(urls, package='handlocs')
-write.csv(urls, 'data/urls.csv', row.names = FALSE)
 ```
 
 We can now also download the raw data from OSF.
 
 ```{r}
-handlocs::dataDownload(groups='all', sections=c('aligned','rotated'), overwrite=FALSE)
+
 ```
 
 We now have all data used for the paper. But there is more data for people that want to explore that: the reaches made during the localization trials. Add the section `localization-reaches` to the command to also download that data.

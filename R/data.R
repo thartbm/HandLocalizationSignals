@@ -26,7 +26,7 @@
 #'@details
 #'
 #' There are 14 groups of participant, who mostly differ on the instructions or task in the rotated session,
-#' but did the same aligned session. They are:
+#' but all did the same aligned session. The primary results are published here:
 #' 
 #' From \href{https://doi.org/10.1371/journal.pone.0220884}{Modchalingam et al. (2018)}:
 #' 
@@ -51,12 +51,14 @@
 #'   \item \code{'handview'}: 29 younger participants, 30 degree rotation, no strategy instruction, hand visible during training
 #' }
 #' 
-#' From Clayton et al. (in preparation):
+#' From \href{https://doi.org/10.1080/08990220.2021.1973403}{Clayton et al. (2021)}:
 #' 
 #' \itemize{
 #'   \item \code{'EDS'}: 14 younger participants, 30 degree rotation, no strategy instruction, normal feedback
 #'   \item \code{'EDSmatched'}: 16 younger participants, 30 degree rotation, no strategy instruction, normal feedback
 #' }
+#' 
+#' This paper is also available as a {https://doi.org/10.1101/2021.04.09.439251}{preprint}.
 #' 
 #' From piloting studies:
 #' 
@@ -101,6 +103,6 @@
 #' data folder. There should also be a subfolder for each group, which has a subfolder for each participant, with
 #' all files for the participant.
 #' 
-#' Run \code{\link{dataDownload}} to download the data.
+#' Run \code{\link{downloadData}} to download the data.
 #' 
 "files"

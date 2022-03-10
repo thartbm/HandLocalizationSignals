@@ -4,7 +4,8 @@
 \name{files}
 \alias{files}
 \title{Filenames for the full data set}
-\format{A data frame with 272 rows (participants) and 15 variables:
+\format{
+A data frame with 272 rows (participants) and 15 variables:
 \describe{
   \item{group}{one of 14 groups, see detailes below}
   \item{participant}{one of 272 participants: a random, 6-character identifier, used in filenames as well}
@@ -21,7 +22,8 @@
   \item{rotated_passivelocalization}{}
   \item{rotated_activereach}{}
   \item{rotated_passivereach}{}
-}}
+}
+}
 \usage{
 files
 }

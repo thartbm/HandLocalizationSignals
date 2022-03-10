@@ -18,20 +18,23 @@
 #' OSF repository: https://osf.io/dhk3u/
 #' @details Not yet.
 #' @export
-downloadData <- function(folder='data', removezips=TRUE, checkfiles=TRUE, groups='all', sections=c('aligned','rotated')) {
+downloadData <- function(folder='data', unzip=TRUE, removezips=TRUE, checkfiles=TRUE, groups='all', sections=c('aligned','rotated'), overwrite=TRUE) {
   
-  filelist <- getDownloadList(groups=groups,sections=sections)
+  filelist <- getDownloadList(groups=groups,
+                              sections=sections)
   
-  #handlocs::downloadOSFdata(repository='https://osf.io/dhk3u/',filelist,folder=folder)
-  
-  #unzipZips(filelist,folder=folder,removezips=removezips)
+  Reach::downloadOSFdata(repository='https://osf.io/dhk3u/',
+                         filelist=filelist,
+                         folder=folder,
+                         overwrite=overwrite,
+                         unzip=unzip,
+                         removezips=removezips)
   
   #checkFiles(filelist,folder=folder)
-  
+  # implement? (should check if all expected files are there or not)
+  # not for now...
   
 }
-
-
 
 
 
@@ -65,7 +68,11 @@ getDownloadList <- function(groups='all', sections=c('aligned','rotated')) {
   # add other files:
   for (group in groups) {
     for (section in sections) {
-      filelist <- c(filelist, sprintf('%s_%s.zip',group,sections))
+      if (substr(group,1,4)=='org_' & section =='rotated') {
+        # do nothing: there is no rotated data for these groups
+      } else {
+        filelist <- c(filelist, sprintf('%s_%s.zip',group,section))
+      }
     }
   }
   
@@ -77,3 +84,54 @@ getDownloadList <- function(groups='all', sections=c('aligned','rotated')) {
   
 }
 
+addSubTaskNumber <- function(df, session) {
+  
+  trial2subtask <- c()
+  
+  # aligned session
+  if (session == 'aligned') {
+    subtasklengths <- c(45,18,9,18,9,9) # first aligned iteration
+    for (repetition in c(1:3)) {
+      subtasklengths <- c(subtasklengths, c(9,18,9,18,9,9)) # next 3 iterations:
+    }
+    offset <- 0
+  }
+  # rotated session
+  if (session == 'rotated') {
+    subtasklengths <- c(90,18,30,18,30,9,9) # first aligned iteration
+    for (repetition in c(1:3)) {
+      subtasklengths <- c(subtasklengths, c(30,18,30,18,30,9,9)) # next 3 iterations:
+    }
+    offset <- 24
+  }
+  
+  # make a vector where index is trial number (within session, starts at 1 for both the aligned and the rotated)
+  # and the values are subtask numbers (across aligned and rotated sessions, starts at 1 and 25 for aligned and rotated respectively)
+  for (subtask_idx in c(1:length(subtasklengths))) {
+    trial2subtask <- c(trial2subtask, rep(subtask_idx+offset, subtasklengths[subtask_idx]))
+  }
+  
+  # add new subtask column to the data frame:
+  df$subtask <- trial2subtask[df$trial_num]
+  
+  # return the extended data frame:
+  return(df)
+  
+}
+
+addEndPointColumn <- function(df) {
+  
+  trial_max_time <- aggregate(time_ms ~ trial_num, data=df, FUN=max)
+  
+  df$endpoint <- 0
+  
+  for (idx in c(1:dim(trial_max_time)[1])) {
+    
+    df$endpoint[which(df$time_ms   == trial_max_time$time_ms[idx] &
+                      df$trial_num == trial_max_time$trial_num[idx])] <- 1
+    
+  }
+  
+  return(df)
+  
+}

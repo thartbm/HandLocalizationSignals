@@ -4,8 +4,15 @@
 \alias{downloadData}
 \title{Download project data from OSF repository.}
 \usage{
-downloadData(folder = "data", removezips = TRUE, checkfiles = TRUE,
-  groups = "all", sections = c("aligned", "rotated"))
+downloadData(
+  folder = "data",
+  unzip = TRUE,
+  removezips = TRUE,
+  checkfiles = TRUE,
+  groups = "all",
+  sections = c("aligned", "rotated"),
+  overwrite = TRUE
+)
 }
 \arguments{
 \item{folder}{Directory on the working directory to store the downloaded data.}

@@ -1,58 +1,71 @@
 ---
 title: "Hand Localization Signals"
 output:
+  html_document:
+    toc: true
   word_document: default
-  html_notebook: default
 ---
 
-In this document all analyses can be reviewed with full output. It starts by loading (and installing) the package with code that is used for the project and paper. The code in this package is not specific to this paper
+This R Studio Project (package) accompanies a paper on afferent and efferent signals for localizing an unseen hand. Here we reproduce all the analyses.
+
+We start by installing a package that has some generic functions that could be useful in other projects as well.
 
 ```{r}
-if (!require(handlocs)) {
+if (!require(Reach)) {
   if (!require(devtools)) {
     install.packages(devtools)
   }
-  # options(download.file.method = "libcurl")
-  devtools::install_github('thartbm/handlocs', ref='main', force=TRUE)
+  devtools::install_github('thartbm/Reach', ref='main', force=TRUE)
 }
-library(handlocs)
+library(Reach)
 ```
 
-We can now also download the raw data from OSF.
+Now we load all the functions used specifically for this project. They are separated in source files, grouped by topic:
 
 ```{r}
-
+# here are some general utility functions:
+source('R/util.R')
+# functions for localization:
+source('R/localization.R')
+# functions for reaches:
+source('R/training.R')
 ```
 
-We now have all data used for the paper. But there is more data for people that want to explore that: the reaches made during the localization trials. Add the section `localization-reaches` to the command to also download that data.
+Everything is set up to start downloading the data from OSF:
+
+```{r}
+#HandLocalizationSignals::downloadData()
+```
+
+By default this downloads all data used for the paper. But there is more data (data is a mass noun nowadays) for people who want to explore that: the reaches made during the localization trials. Add the section `localization-reaches` to the command to also download that data. Or you can download less data by specifying a list of groups (and sections) to download.
 
 The main thing to do first is to further clean the data. All trials have been manually inspected and have been tagged as selected or not: every csv file has a `selected` column with 1 for selected trials and 0 for not selected trials. All reach trajectories in `training` and `nocursor` files (but not the `activereach` and `passivereach` files) also have a sample indicated to correspond to the point of maximum velocity, which we use as point to get the angular reach deviations at.
 
 ```{r}
-getFileReachDeviations <- function(data, column='maxvelocity', value=1, FUN=NULL) {
-  
-  
-  df <- read.csv(data, stringsAsFactors = FALSE)
-  
-  if (!is.null(FUN)) {
-    df <- FUN(df)
-  }
-  
-  df <- df[which(df[[column]] == value),]
-  
-  for (target in unique(df$targetangle_deg)) {
-    
-    idx <- which(df$targetangle_deg == target)
-    
-    df[idx,c('handx_cm','handy_cm')] <- SMCL::rotateCoordinates(df[idx,c('handx_cm','handy_cm')], -target)
-    
-  }
-  
-  df$angulardeviation_deg <- (atan2(df$handy_cm,df$handx_cm) / pi) * 180
-  
-  df
-  
-}
+# getFileReachDeviations <- function(data, column='maxvelocity', value=1, FUN=NULL) {
+#   
+#   
+#   df <- read.csv(data, stringsAsFactors = FALSE)
+#   
+#   if (!is.null(FUN)) {
+#     df <- FUN(df)
+#   }
+#   
+#   df <- df[which(df[[column]] == value),]
+#   
+#   for (target in unique(df$targetangle_deg)) {
+#     
+#     idx <- which(df$targetangle_deg == target)
+#     
+#     df[idx,c('handx_cm','handy_cm')] <- SMCL::rotateCoordinates(df[idx,c('handx_cm','handy_cm')], -target)
+#     
+#   }
+#   
+#   df$angulardeviation_deg <- (atan2(df$handy_cm,df$handx_cm) / pi) * 180
+#   
+#   df
+#   
+# }
 ```
 
 # Hand Localization
@@ -65,19 +78,142 @@ Summarize at 3 training targets? Effect of age?
 
 ## Efferent and Afferent precision
 
-Effect of age? (2 scatters, with strip-plots/denisities in the margins)
+Effect of age? (2 scatters, with strip-plots/densities in the margins)
+
+```{r fig.width=6, fig.height=6}
+loc_sds <- getLocalizationSDs()
+
+plot(loc_sds$active_sd, loc_sds$passive_sd,
+     xlim=c(0,15), ylim=c(0,15),
+     main='active and passive localization noise',
+     xlab='active localization noise [sd]',
+     ylab='passive localization noise [sd]',
+     asp=1,bty='n',ax=F)
+lines(c(0,15),c(0,15))
+axis(side=1,at=c(0,5,10,15))
+axis(side=2,at=c(0,5,10,15))
+```
+
+This does not look very convincing, but we will do statistics anyway. First a on-sided Welch's t-test of the difference between the estimates of standard deviation in passive minus those in active localization:
+
+```{r}
+d <- loc_sds$passive_sd - loc_sds$active_sd
+t.test(d, mu=0, alternative = 'g')
+Reach::etaSquaredTtest(d)
+```
+
+Then a binomial exact test, seeing if the chance of finding a participant with a pattern predicted by MLE is higher than "chance" (which we leave at 50% here, but that is arguably the wrong level):
+
+```{r}
+binom.test(x=sum(loc_sds$passive_sd > loc_sds$active_sd), n = dim(loc_sds)[1])
+```
+
+The t-tests show that we do find higher standard deviations in passive as compared to active localization, but according to the exact binomial test we can not reject the null hypothesis.
+
+Let's see if we can accept the null hypothesis using a Bayesian "t-test":
+
+```{r}
+active_sd <- as.vector(as.numeric(loc_sds$active_sd))
+passive_sd <- as.vector(as.numeric(loc_sds$passive_sd))
+
+BayesFactor::ttestBF(x=active_sd, y=passive_sd, paired=TRUE)
+```
+With the default, uninformative prior, the Bayes Factor is out of the "anecdotal" range, but only barely.
+
+Let's look at the data another way by plotting the distribution of differences: 
+
+```{r}
+hist(loc_sds$passive_sd - loc_sds$active_sd, breaks=25)
+```
+
+The majority of data should be above 0 in this figure. And there might be a small, but hardly meaningful long tail.
+
+Here is the bootstrapped confidence interval of the mean (replace method with 't' to get t-distribution esimate):
+
+```{r}
+Reach::getConfidenceInterval(d, method='b', FUN=mean, resamples = 1000)
+```
+Let's see if a distribution with a non-zero mean can really explain the data better than one with a zero mean.
+
+```{r}
+AIClL <- function(lL, k) {
+  return((2*k) - (2*lL))
+}
+
+relativeLikelihood <- function(crit) {
+  return( exp( ( min( crit  ) - crit  ) / 2 ) )
+}
+
+densities_nm <- dnorm(d, mean=mean(d), sd=sd(d))
+loglik_nm <- sum(log(densities_nm))
+
+densities_zm <- dnorm(d, mean=0, sd=sum(abs(d))/length(d))
+loglik_zm <- sum(log(densities_zm))
+
+logL <- c('optimal'=loglik_nm, 'zeromean'=loglik_zm)
+
+AIC <- AIClL(logL, k=c(2,1))
+
+relativeLikelihood(AIC)
+```
+Yes, that really is different... and: the power of likelihoods.
+
+```{r}
+print(mean(d))
+```
+Passive has on average 1/4 degree higher standard deviation than active!
+
 
 # Reaching
 
-(get reach deviations at maximum velocity in training and at endpoint in no-cursor)
+Here we start investigating motor noise, by estimating it in both aligned training reaches and their subsequent no-cursor reaches. We again use standard deviation as an estimate of noise, and then see if this estimate of noise is related in training reaches and in no-cursor reaches.
 
 ## Reach accuracy with and without cursor
 
 What is the accuracy in each case? Biases to each target. Effects of age?
 
+As an estimate of reach noise in training and no-cursor trials (with aligned visual feedback) we use the standard deviation of the angular error at the point of maximum velocity for training, and both the point of maximum velocity and the endpoint (last sample) for no-cursor reaches.
+
+```{r}
+reach_sds <- getReachSD()
+```
+
+
 ## Reach precision with and without cursor
 
 What is the precision of reaches? Does this actually change after adaptation? Effects of age?
+
+Let's make a plot to answer the first question here:
+
+```{r fig.width=8, fig.height=4}
+
+layout(mat=matrix(c(1,2),nrow=1,ncol=2))
+
+plot(reach_sds$training, reach_sds$nocursor_ep,
+     xlim=c(0,16), ylim=c(0,16),
+     main='reach noise',
+     xlab='training reach noise [sd]',
+     ylab='no-cursor endpoint noise [sd]',
+     asp=1,bty='n',ax=F)
+lines(c(0,16),c(0,16))
+axis(side=1,at=c(0,5,10,15))
+axis(side=2,at=c(0,5,10,15))
+
+plot(reach_sds$training, reach_sds$nocursor_mv,
+     xlim=c(0,16), ylim=c(0,16),
+     main='reach noise',
+     xlab='training reach noise [sd]',
+     ylab='no-cursor max. velocity noise [sd]',
+     asp=1,bty='n',ax=F)
+lines(c(0,16),c(0,16))
+axis(side=1,at=c(0,5,10,15))
+axis(side=2,at=c(0,5,10,15))
+
+```
+
+First of all, the training noise looks larger than the no-cursor noise. Are people relying on the fact that they are able to correct their reaches during training trials, so they don't have to be as accurate as during no-cursor reaches?
+
+The two plots look very similar, and since we want to compare no-cursor reaches with localization, we'll use the endpoint as those might be more comparable. Although perhaps this graph shows that it doesn't really matter.
 
 # Localization and Reaching
 
@@ -89,13 +225,186 @@ Do biases in localization (accuracy per target), predict biases in reaching? Wit
 
 Does localization precsion (afferent or efferent?) predict precision in reaching with or without cursor? Effects of age?
 
+```{r fig.width=8, fig.height=8}
+
+all_sds <- merge(loc_sds,
+                 reach_sds,
+                 by='participant')
+
+layout(mat=matrix(c(1,2,3,4),nrow=2,ncol=2))
+
+plot(all_sds$training, all_sds$passive_sd,
+     xlim=c(0,16), ylim=c(0,16),
+     main='',
+     xlab='training reach noise [sd]',
+     ylab='passive localization noise [sd]',
+     asp=1,bty='n',ax=F)
+lines(c(0,16),c(0,16))
+axis(side=1,at=c(0,5,10,15))
+axis(side=2,at=c(0,5,10,15))
+
+plot(all_sds$training, all_sds$active_sd,
+     xlim=c(0,16), ylim=c(0,16),
+     main='',
+     xlab='training reach noise [sd]',
+     ylab='active localization noise [sd]',
+     asp=1,bty='n',ax=F)
+lines(c(0,16),c(0,16))
+axis(side=1,at=c(0,5,10,15))
+axis(side=2,at=c(0,5,10,15))
+
+plot(all_sds$nocursor_ep, all_sds$passive_sd,
+     xlim=c(0,16), ylim=c(0,16),
+     main='',
+     xlab='no-cursor reach noise [sd]',
+     ylab='passive localization noise [sd]',
+     asp=1,bty='n',ax=F)
+lines(c(0,16),c(0,16))
+axis(side=1,at=c(0,5,10,15))
+axis(side=2,at=c(0,5,10,15))
+
+plot(all_sds$nocursor_ep, all_sds$active_sd,
+     xlim=c(0,16), ylim=c(0,16),
+     main='',
+     xlab='no-cursor reach noise [sd]',
+     ylab='active localization noise [sd]',
+     asp=1,bty='n',ax=F)
+lines(c(0,16),c(0,16))
+axis(side=1,at=c(0,5,10,15))
+axis(side=2,at=c(0,5,10,15))
+
+```
+
 # Adaptation
+
+Since this is an adaptation paradigm, we also want to see the relationship between localization precision and reach precision on the one hand, and the asymptotic level of adaptation on the other hand.  (We might also test the speed/rate of adaptation.)
+
+We can't use the 4 pilot groups for this, as the rotated data was [not of acceptable quality | not even recorded | lost in time] (and is not available here), because of both technical errors (in programming the experiment) and instructions that were confusing. All other groups also have slight differences in the rotated part of the experiment, to test specific hypothesis, and this needs to be accounted for in any experiments we might want to do when investigating phenomena in the whole data set. In particular, if we want to include the groups with 60 degree rotations, it might make sense to divide all measures in degrees by the size of the rotation. The two most similar groups are the 'control' group and the 'EDSmatch' group, who both adapted to a 30 degree rotation without any special instructions are visual feedback. However, the 'EDSmatch' group is somewhat older commpared to the 'control' group, and not recruited from university students, to match the 'EDS' group better.
+
+This is why we use 'group' as a [co-variant | fixed effect]
+
+Let's look at the adaptation in all the relevant 30 degree groups. We first get the data:
+
+```{r}
+adaptation <- getAdaptation(do_baseline = TRUE)
+```
+
+This adaptation has been "baselined": the average reach deviation during for each target during the last 30 trials of the first (aligned) training task has been subtracted for each participant separately.
+
+In the end we want to calculate an asymptote anyway, but we'll do it now, so that we can select participants who actually adapted. The asymptote is based on the last 30 trials, as it seems that participants adaptation has mostly saturated by then, and using a larger number of trials allows for a more accurate estimate of asymptotic level.
+
+```{r}
+adaptation_asymptote <- aggregate(deviation_deg ~ participant, 
+                                  data=adaptation[which(adaptation$trial_num > 60),],
+                                  FUN=mean)
+plot(adaptation_asymptote$deviation_deg)
+```
+We can see that most participants adapted reasonably well, but two have asymptotic adaptation levels less than half of the rotation, so we remove them from the data, leaving us with 75 participants:
+
+```{r}
+pp.idx <- adaptation_asymptote$participant[which(adaptation_asymptote$deviation_deg < 15)]
+adaptation <- adaptation[which(! adaptation$participant %in% pp.idx),]
+adaptation_asymptote <- adaptation_asymptote[which(! adaptation_asymptote$participant %in% pp.idx),]
+```
+
+
+This data has each participants' baseline reaches subtracted (split by target). Let's make a plot:
+
+```{r fig.width=8, fig.height=4}
+
+plot(-1000,-1000,
+     xlim=c(0,91),ylim=c(-1,31),
+     main=sprintf('adaptation (N=%d)',length(unique(adaptation$participant))),
+     xlab='trial',ylab=' reach deviation [deg]',
+     ax=F,bty='n')
+
+# we want a 95% confidence interval for the reach deviations:
+adaptation_CI  <- aggregate(deviation_deg ~ trial_num, data=adaptation, FUN=Reach::getConfidenceInterval)
+adaptation_avg <- aggregate(deviation_deg ~ trial_num, data=adaptation, FUN=mean)
+
+polygon(x=c(1:90,rev(1:90)),
+        y=c(adaptation_CI$deviation_deg[,1], rev(adaptation_CI$deviation_deg[,2])),
+        col='#00000033', border=NA )
+
+lines(adaptation_avg$deviation_deg)
+
+lines(c(1,90),c(30,30),col='#666666', lty=2)
+
+axis(side=1, at=c(1,30,60,90))
+axis(side=2, at=c(0,15,30))
+```
+
+> Why is it higher than 0 in trial 1?
 
 ## Localization
 
 Does adaptation depend on localization precision (efferent / afferent)? Effects of age?
 
+Let's plot asymptotic levels of adaptation over localization noise:
+
+```{r fig.width=8, fig.height=8}
+adaptation_sn <- merge(all_sds,
+                       adaptation_asymptote,
+                       by='participant')
+
+layout( mat=matrix(c(1,2,3,4), 
+                   ncol=2, 
+                   nrow=2)  )
+
+plot( adaptation_sn$passive_sd, adaptation_sn$deviation_deg,
+      main='',
+      xlim=c(0,16), ylim=c(15,45),
+      xlab='passive localization noise [sd]',
+      ylab='adaptation asymptote [deg]',
+      bty='n', ax=F)
+axis(side=1, at=c(0,5,10,15))
+axis(side=2, at=c(15,30,45))
+
+plot( adaptation_sn$active_sd, adaptation_sn$deviation_deg,
+      main='',
+      xlim=c(0,16), ylim=c(15,45),
+      xlab='active localization noise [sd]',
+      ylab='adaptation asymptote [deg]',
+      bty='n', ax=F)
+axis(side=1, at=c(0,5,10,15))
+axis(side=2, at=c(15,30,45))
+
+plot( adaptation_sn$training, adaptation_sn$deviation_deg,
+      main='',
+      xlim=c(0,16), ylim=c(15,45),
+      xlab='training reach noise [sd]',
+      ylab='adaptation asymptote [deg]',
+      bty='n', ax=F)
+axis(side=1, at=c(0,5,10,15))
+axis(side=2, at=c(15,30,45))
+
+plot( adaptation_sn$nocursor_ep, adaptation_sn$deviation_deg,
+      main='',
+      xlim=c(0,16), ylim=c(15,45),
+      xlab='no-cursor noise [sd]',
+      ylab='adaptation asymptote [deg]',
+      bty='n', ax=F)
+axis(side=1, at=c(0,5,10,15))
+axis(side=2, at=c(15,30,45))
+
+```
+
+
 ## Exploration, exploitation
 
 Does adaptation depend on reach precision (with or without cursor)? Effects of age?
 
+See figure above: doesn't look like it at all.
+
+NEED TO SEPARATE PLANNING & EXECUTION NOISE (see Hu et al 2016 PLOS Comp Biol, with Kording and Wei, Hulst et al , and of course Eggert et al. 2021)
+
+AND: ESTIMATE ADAPTATION RATE (rather than asymptote)
+
+## Incomplete adaptation
+
+Does recalibrated proprioception set a limit on implicit adaptation such that it is incomplete? (Tsay et al. 2022?)
+
+
+### Jennifer's two-rate data, cited by Tsay et al. (under review)
+
+Already made a separate notebook for that.
